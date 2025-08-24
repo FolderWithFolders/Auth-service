@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обработка авторизации</title>
+</head>
+<body>
+    <h1>Обработка...</h1>
+    <script>
+        const BACKEND_URL = 'http://localhost:8081';
+        
+        // Извлечение code из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const provider = 'unknown'; // Можно определить по сессии или добавить логику; для простоты фиксировано, но в ТЗ передаётся в запрос
+
+        if (code) {
+            exchangeCodeForToken(code, provider);
+        } else {
+            alert('Ошибка: code не найден');
+            window.location.href = '/index.html';
+        }
+
+        // Обмен code на JWT
+        async function exchangeCodeForToken(code, provider) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/social/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, provider })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('jwt', data.jwt);
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                    window.location.href = '/index.html'; // Редирект назад на главную
+                } else {
+                    alert('Ошибка авторизации');
+                    window.location.href = '/index.html';
+                }
+            } catch (error) {
+                console.error('Error exchanging code:', error);
+                alert('Ошибка соединения');
+                window.location.href = '/index.html';
+            }
+        }
+    </script>
+</body>
+</html>

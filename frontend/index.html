@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Авторизация</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Добро пожаловать</h1>
+    <button id="loginButton">Войти через социальные сети</button>
+
+    <!-- Модальное окно для выбора провайдера -->
+    <div id="providerModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Выберите провайдера</h2>
+            <button onclick="startAuth('google')">Google</button>
+            <button onclick="startAuth('facebook')">Facebook</button>
+            <button onclick="startAuth('linkedin')">LinkedIn</button>
+        </div>
+    </div>
+
+    <!-- Секция для user info после входа -->
+    <div id="userInfo" style="display: none;">
+        <h2>Информация о пользователе</h2>
+        <p id="email"></p>
+        <p id="firstName"></p>
+        <p id="lastName"></p>
+        <img id="picture" alt="Profile picture" style="max-width: 100px;">
+        <button onclick="logout()">Выйти</button>
+    </div>
+
+    <script>
+        const KEYCLOAK_URL = 'http://localhost:8080';
+        const REALM = 'avbinvest';
+        const CLIENT_ID = 'frontend-client'; // Из Keycloak
+        const REDIRECT_URI = 'http://localhost:3000/callback.html'; // Должен совпадать с Keycloak
+        const BACKEND_URL = 'http://localhost:8081';
+
+        // Показ модалки при клике на кнопку
+        const modal = document.getElementById('providerModal');
+        const loginButton = document.getElementById('loginButton');
+        const closeSpan = document.getElementsByClassName('close')[0];
+
+        loginButton.onclick = function() {
+            modal.style.display = 'block';
+        }
+
+        closeSpan.onclick = function() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Функция для старта аутентификации
+        function startAuth(provider) {
+            const authUrl = `${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=openid profile email&kc_idp_hint=${provider}`;
+            window.location.href = authUrl;
+        }
+
+        // Проверка JWT при загрузке страницы
+        window.onload = function() {
+            const jwt = localStorage.getItem('jwt');
+            if (jwt) {
+                fetchUserInfo(jwt);
+            }
+        }
+
+        // Получение user info
+        async function fetchUserInfo(jwt) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/user-info`, {
+                    headers: { 'Authorization': `Bearer ${jwt}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('email').textContent = `Email: ${data.email}`;
+                    document.getElementById('firstName').textContent = `Имя: ${data.first_name}`;
+                    document.getElementById('lastName').textContent = `Фамилия: ${data.last_name}`;
+                    document.getElementById('picture').src = data.picture || '';
+                    document.getElementById('userInfo').style.display = 'block';
+                    loginButton.style.display = 'none';
+                } else {
+                    logout();
+                }
+            } catch (error) {
+                console.error('Error fetching user info:', error);
+                logout();
+            }
+        }
+
+        // Выход
+        function logout() {
+            localStorage.removeItem('jwt');
+            localStorage.removeItem('refresh_token');
+            document.getElementById('userInfo').style.display = 'none';
+            loginButton.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
